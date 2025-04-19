@@ -1,0 +1,97 @@
+﻿@page "/"
+@using n.Application
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Home</PageTitle>
+
+<h3>Navigation Service</h3>
+<p>Enter start and destination points:</p>
+<div>
+    <select @bind="StartNode">
+        <option value="A">Los Angeles</option>
+        <option value="B">New York</option>
+        <option value="C">Paris</option>
+        <option value="D">Tokyo</option>
+    </select>
+    <select @bind="DestinationNode">
+        <option value="A">Los Angeles</option>
+        <option value="B">New York</option>
+        <option value="C">Paris</option>
+        <option value="D">Tokyo</option>
+    </select>
+    <button @onclick="CalculateShortestPath">Find Path</button>
+</div>
+
+<div id="map" style="height: 500px; margin-top: 20px;"></div>
+
+<p>@StatusMessage</p>
+
+@code {
+    private string StartNode { get; set; } = "A";
+    private string DestinationNode { get; set; } = "B";
+    private string StatusMessage { get; set; } = string.Empty;
+
+    // Simulated graph data
+    // true distance but will yield straight lines
+    // private readonly Dictionary<string, Dictionary<string, int>> Graph = new()
+    // {
+    //     { "A", new Dictionary<string, int> { { "B", 3935 }, { "C", 9086 }, { "D", 8815 } } },
+    //     { "B", new Dictionary<string, int> { { "A", 3935 }, { "C", 5837 }, { "D", 10849 } } },
+    //     { "C", new Dictionary<string, int> { { "A", 9086 }, { "B", 5837 }, { "D", 9712 } } },
+    //     { "D", new Dictionary<string, int> { { "A", 8815 }, { "B", 10849 }, { "C", 9712 } } }
+    // };
+
+    private readonly Dictionary<string, Dictionary<string, int>> Graph = new()
+    {
+        { "A", new Dictionary<string, int> { { "B", 1 }, { "C", 4 }, { "D", 9 } } },
+        { "B", new Dictionary<string, int> { { "A", 1 }, { "C", 1 }, { "D", 4 } } },
+        { "C", new Dictionary<string, int> { { "A", 4 }, { "B", 1 }, { "D", 1 } } },
+        { "D", new Dictionary<string, int> { { "A", 9 }, { "B", 4 }, { "C", 1 } } }
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize the map at a default location
+            await JSRuntime.InvokeVoidAsync("initializeMap", 0, 0);
+        }
+    }
+
+    private async Task CalculateShortestPath()
+    {
+        // Compute the shortest path using the GetShortestPath logic
+        var path = NavigationService.GetShortestPath(Graph, StartNode, DestinationNode);
+
+        if (path != null)
+        {
+            var locations = path.Select(node => node switch
+            {
+                "A" => "Los Angeles",
+                "B" => "New York",
+                "C" => "Paris",
+                "D" => "Tokyo"
+            });
+
+            StatusMessage = $"Shortest Path: {string.Join(" -> ", locations)}";
+
+            // Map example coordinates to graph nodes
+            var coordinates = path.Select(node => node switch
+            {
+                "A" => new[] { 34.0522, -118.2437 }, // Example coordinates for "A" (Los Angeles, USA)
+                "B" => new[] { 40.7128, -74.0060 }, // Example coordinates for "B" (New York City, USA)
+                "C" => new[] { 48.8566, 2.3522 }, // Example coordinates for "C" (Paris, France)
+                "D" => new[] { 35.6895, 139.6917 }, // Example coordinates for "D" (Tokyo, Japan)
+                _ => new double[0]
+            }).ToArray();
+
+
+            // Pass the coordinates to the JS map
+            await JSRuntime.InvokeVoidAsync("drawPath", System.Text.Json.JsonSerializer.Serialize(coordinates));
+        }
+        else
+        {
+            StatusMessage = "Path not found.";
+        }
+    }
+}
